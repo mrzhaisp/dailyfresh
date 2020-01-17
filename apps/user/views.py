@@ -151,15 +151,16 @@ class RegisterView(View):
         #拿到jdango中设置中的settings.SECRET_KEY  然后拿到用户id 组合加密
         serializer = Serializer(settings.SECRET_KEY,3600)
         info = {'confirm':user.id}
-        token = serializer.dumps(info)
+        token = serializer.dumps(info).decode('utf8')
 
         #发送邮件
         #标题
         subject = '生鲜信息欢迎你'
-        message = '<h1>%s,欢迎您成为会员，</h1点击下链接激活用户</br><a href="http:127.0.0.1:8000/user/active/%s">http:127.0.0.1:8000/user/active/%s</a>'%(username,token,token)
+        message = ''
         sender = settings.EMAIL_FROM
         receiver = [email]
-        send_mail(subject,message,sender,receiver)
+        html_message = '<h1>%s,欢迎您成为会员，</h1点击下链接激活用户</br><a href="http:127.0.0.1:8000/user/active/%s">http:127.0.0.1:8000/user/active/%s</a>'%(username,token,token)
+        send_mail(subject,message,sender,receiver,html_message=html_message)
 
         # 应答 跳转到首页  反响解析
         return redirect(reverse('goods:index'))
