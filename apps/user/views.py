@@ -8,6 +8,11 @@ from django.conf import settings
 from itsdangerous import SignatureExpired
 from django.http import HttpResponse
 from django.core.mail import send_mail
+from celery_task.tasks import send_register_active_email
+from django.contrib.auth import authenticate
+import time
+
+
 # Create your views here.
 
 
@@ -109,12 +114,12 @@ class RegisterView(View):
 
     def post(self,request):
         '''注册处理'''
-        # 接收数据
+        # 1  接收数据
         username = request.POST.get('user_name')
         password = request.POST.get('pwd')
         email = request.POST.get('email')
         allow = request.POST.get('allow')
-        # 数据校验
+        # 2  数据校验
         if not all([username, password, email]):
             # 数据不完整
             return render(request, 'register.html', {'errmsg': '数据不完整'})
@@ -155,12 +160,16 @@ class RegisterView(View):
 
         #发送邮件
         #标题
-        subject = '生鲜信息欢迎你'
-        message = ''
-        sender = settings.EMAIL_FROM
-        receiver = [email]
-        html_message = '<h1>%s,欢迎您成为会员，</h1点击下链接激活用户</br><a href="http:127.0.0.1:8000/user/active/%s">http:127.0.0.1:8000/user/active/%s</a>'%(username,token,token)
-        send_mail(subject,message,sender,receiver,html_message=html_message)
+        # subject = '生鲜信息欢迎你'
+        # message = ''
+        # sender = settings.EMAIL_FROM
+        # receiver = [email]
+        # html_message = '<h1>%s,欢迎您成为会员，</h1点击下链接激活用户</br><a href="http:127.0.0.1:8000/user/active/%s">http:127.0.0.1:8000/user/active/%s</a>'%(username,token,token)
+        # send_mail(subject,message,sender,receiver,html_message=html_message)
+        # time.sleep(5)
+
+        #调用celery中的发送邮件函数delay方法
+        send_register_active_email.delay(email,username,token)
 
         # 应答 跳转到首页  反响解析
         return redirect(reverse('goods:index'))
@@ -192,6 +201,49 @@ class LoginView(View):
     def get(self,request):
         '''显示登陆页面'''
         return render(request,'login.html')
+    def post(self,request):
+        # 1接收数据
+        username = request.POST.get('username')
+        password = request.POST.get('pwd')
+        # request.POST.get()
+
+        # 2：校验数据
+        if not all([username,password]):
+            return render(request,'login.html',{'errmsg':'数据不完整'})
+
+        # 3：处理 登陆校验
+        # User.objects.get(username=username,password=password)
+        user = authenticate(username=username,password=password)
+        if user is not None:
+            #用户密码正确 已经激活
+            if user.is_active:
+                #已经激活 跳转到首页
+                return redirect(reverse('goods:index'))
+            else:
+                return render(request,'login.html',{'errmsg':'账户未激活'})
+        else:
+            return render(request,'login.html',{'errmsg':'用户名或者密码错误'})
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
