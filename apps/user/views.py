@@ -9,7 +9,7 @@ from itsdangerous import SignatureExpired
 from django.http import HttpResponse
 from django.core.mail import send_mail
 from celery_task.tasks import send_register_active_email
-from django.contrib.auth import authenticate
+from django.contrib.auth import authenticate,login
 import time
 
 
@@ -200,7 +200,16 @@ class LoginView(View):
     '''登陆首页'''
     def get(self,request):
         '''显示登陆页面'''
-        return render(request,'login.html')
+        #判断是否记住用户名
+        if 'username' in request.COOKIES:
+            username = request.COOKIES.get('username')
+            checked = 'checked'
+        else:
+            username = ''
+            checked = ''
+
+        return render(request,'login.html',{'username':username,'checked':checked })
+
     def post(self,request):
         # 1接收数据
         username = request.POST.get('username')
@@ -217,8 +226,22 @@ class LoginView(View):
         if user is not None:
             #用户密码正确 已经激活
             if user.is_active:
+
                 #已经激活 跳转到首页
-                return redirect(reverse('goods:index'))
+                response =  redirect(reverse('goods:index'))
+
+                # 记录用户登陆状态
+                login(request,user)
+
+                #判断是否需要记住用户名
+                remember = request.POST.get('remember')
+                if remember == 'on':
+                    response.set_cookie('username',username,max_age=3600)
+                else:
+                    response.delete_cookie('username')
+                return response
+
+
             else:
                 return render(request,'login.html',{'errmsg':'账户未激活'})
         else:
